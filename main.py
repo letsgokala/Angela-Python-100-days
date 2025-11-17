@@ -1,15 +1,33 @@
 from tkinter import *
+import subprocess
+import shutil
 # ---------------------------- CONSTANTS ------------------------------- #
 PINK = "#e2979c"
 RED = "#e7305b"
 GREEN = "#9bdeac"
 YELLOW = "#f7f5dd"
 FONT_NAME = "Courier"
-WORK_MIN = .5
-SHORT_BREAK_MIN = .5
-LONG_BREAK_MIN = .5
+WORK_MIN = 25
+SHORT_BREAK_MIN = 5
+LONG_BREAK_MIN = 15
 reps = 0
 timer = None
+
+# ---------------------------- notifications ------------------------------- #
+def send_notification(title: str, message: str):
+    """
+    Use the system 'notify-send' on Linux if available.
+    Falls back to printing to stdout if not present.
+    """
+    if shutil.which("notify-send"):
+        # non-blocking; ignore errors
+        try:
+            subprocess.run(["notify-send", title, message], check=False)
+        except Exception:
+            pass
+    else:
+        # fallback for environments without notify-send
+        print(f"NOTIFY: {title} - {message}")
 
 # ---------------------------- TIMER RESET ------------------------------- # 
 
@@ -33,14 +51,18 @@ def start_timer():
 
     reps += 1
     if reps % 8 == 0:
-        count_down(long_break_sec)
         title_lable.config(text="Long Break", fg=RED)
+        send_notification("Long Break started", "Take a longer break.")
+        count_down(long_break_sec)
+        
     elif reps % 2 == 0:
-        count_down(short_break_sec)
         title_lable.config(text="Short Break", fg=PINK)
+        send_notification("Short Break started", "Quick rest — relax for a bit.")
+        count_down(short_break_sec)
     else:
-        count_down(work_sec)
         title_lable.config(text="Work", fg=GREEN)
+        send_notification("Work session started", "Focus for your work session.")
+        count_down(work_sec)
     
 
 # ---------------------------- COUNTDOWN MECHANISM ------------------------------- # 
@@ -57,6 +79,11 @@ def count_down(count):
     if count > 0:
         timer = window.after(1000, count_down, count - 1)
     else:
+        finished_session = title_lable.cget("text")
+        if finished_session == "Work":
+            send_notification("Work session ended", "Time for a break!")
+        else:
+            send_notification(f"{finished_session} ended", "Time to get back to work!")
         start_timer()
         marks = ""
         work_sessions = reps // 2
